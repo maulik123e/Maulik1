@@ -1,23 +1,46 @@
 import os
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from keep_alive import keep_alive
+import telebot
+from keep_alive import keep_alive  # Optional, for hosting
 
-# Load bot token from environment variable
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+# Get your bot token from environment variable or paste directly here
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # or replace with your actual token
 
-# Folder containing preview subfolders
-PREVIEW_FOLDER = "previews"
+bot = telebot.TeleBot(BOT_TOKEN)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    args = context.args
+@bot.message_handler(commands=['start'])
+def start_message(message):
+    bot.send_message(message.chat.id, "👋 Welcome! Send /preview to get image previews.")
 
-    if not args:
-        await update.message.reply_text("👋 Welcome! Please send a folder code.\nExample: `/start V1`", parse_mode="Markdown")
+@bot.message_handler(commands=['preview'])
+def send_previews(message):
+    folder_path = "screenshots"  # Make sure this folder exists in your project
+
+    if not os.path.exists(folder_path):
+        bot.send_message(message.chat.id, "❌ No preview folder found.")
         return
 
-    folder = args[0]
-    folder_path = os.path.join(PREVIEW_FOLDER, folder)
+    sent_any = False
 
-    if not os.path.exists(file_path):
-    continue
+    for file_name in os.listdir(folder_path):
+        file_path = os.path.join(folder_path, file_name)
+
+        # Skip if file doesn't exist or is too small (possibly broken)
+        if not os.path.exists(file_path) or os.path.getsize(file_path) < 1024:
+            continue
+
+        try:
+            with open(file_path, 'rb') as photo:
+                bot.send_photo(message.chat.id, photo)
+                sent_any = True
+        except Exception as e:
+            print(f"⚠️ Error sending {file_name}: {e}")
+            bot.send_message(message.chat.id, f"❌ Error sending {file_name}")
+
+    if not sent_any:
+        bot.send_message(message.chat.id, "⚠️ No valid images found to preview.")
+
+# Keep-alive for Replit or Render
+keep_alive()
+
+# Start the bot
+bot.infinity_polling()
