@@ -20,4 +20,4 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     folder_path = os.path.join(PREVIEW_FOLDER, folder)
 
     if not os.path.exists(file_path):
-    continue
+        continue
