@@ -2,45 +2,50 @@ import os
 import telebot
 from keep_alive import keep_alive  # Optional, for hosting
 
-# Get your bot token from environment variable or paste directly here
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # or replace with your actual token
-
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Make sure to set this in Render
 bot = telebot.TeleBot(BOT_TOKEN)
 
 @bot.message_handler(commands=['start'])
-def start_message(message):
-    bot.send_message(message.chat.id, "👋 Welcome! Send /preview to get image previews.")
-
-@bot.message_handler(commands=['preview'])
 def send_previews(message):
-    folder_path = "screenshots"  # Make sure this folder exists in your project
+    try:
+        cmd_parts = message.text.strip().split()
 
-    if not os.path.exists(folder_path):
-        bot.send_message(message.chat.id, "❌ No preview folder found.")
-        return
+        # If only "/start" is sent without any folder
+        if len(cmd_parts) != 2:
+            bot.reply_to(message, "📁 Please send like this:\n`/start movie1`", parse_mode="Markdown")
+            return
 
-    sent_any = False
+        folder_name = cmd_parts[1]
+        folder_path = os.path.join("previews", folder_name)
 
-    for file_name in os.listdir(folder_path):
-        file_path = os.path.join(folder_path, file_name)
+        if not os.path.exists(folder_path):
+            bot.send_message(message.chat.id, f"❌ No folder named `{folder_name}` found.", parse_mode="Markdown")
+            return
 
-        # Skip if file doesn't exist or is too small (possibly broken)
-        if not os.path.exists(file_path) or os.path.getsize(file_path) < 1024:
-            continue
+        sent_any = False
 
-        try:
-            with open(file_path, 'rb') as photo:
-                bot.send_photo(message.chat.id, photo)
-                sent_any = True
-        except Exception as e:
-            print(f"⚠️ Error sending {file_name}: {e}")
-            bot.send_message(message.chat.id, f"❌ Error sending {file_name}")
+        for file_name in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, file_name)
 
-    if not sent_any:
-        bot.send_message(message.chat.id, "⚠️ No valid images found to preview.")
+            if not os.path.exists(file_path) or os.path.getsize(file_path) < 1024:
+                continue  # skip small/broken files
 
-# Keep-alive for Replit or Render
+            try:
+                with open(file_path, 'rb') as photo:
+                    bot.send_photo(message.chat.id, photo)
+                    sent_any = True
+            except Exception as e:
+                print(f"⚠️ Error sending {file_name}: {e}")
+                bot.send_message(message.chat.id, f"❌ Error sending {file_name}")
+
+        if not sent_any:
+            bot.send_message(message.chat.id, f"⚠️ No valid images found in `{folder_name}`.", parse_mode="Markdown")
+
+    except Exception as e:
+        bot.send_message(message.chat.id, f"❌ Unexpected error: {e}")
+
+# For hosting
 keep_alive()
 
-# Start the bot
+# Start bot
 bot.infinity_polling()
